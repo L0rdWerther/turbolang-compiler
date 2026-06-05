@@ -1,7 +1,5 @@
 # Compilador TurboLang
 
-Compilador para **TurboLang**, uma linguagem de programação procedural.
-
 ```
                          __
                    _.--""  |
