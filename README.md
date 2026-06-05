@@ -1,28 +1,9 @@
 # Compilador TurboLang
 
-## Resumo para Entrega
-
 TurboLang e um compilador didatico para a disciplina de Compiladores. O objetivo do projeto e traduzir uma linguagem procedural de alto nivel para uma variante textual documentada de assembly SaM.
 
-Requisitos obrigatorios atendidos: funcoes/procedimentos, tipos `int`, `float` IEEE-754 simples/float32 e `char`, variaveis, constantes numericas, atribuicao, operadores aritmeticos, relacionais e logicos, estruturas `if then/entao else/senao`, repeticao `while`, analise lexica e sintatica manuais, analise semantica, geracao de codigo, testes e documentacao.
-
-Como executar:
-
-```powershell
-.\.venv\Scripts\python.exe main.py examples\hello.turbo
-.\.venv\Scripts\python.exe main.py examples\hello.turbo -o hello.sam
 ```
 
-Como rodar os testes:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover tests
-.\.venv\Scripts\python.exe tests\test_all.py
-```
-
-Limitacoes opcionais conhecidas: strings tem suporte parcial para literais/impressao; vetores/arrays sao parciais/opcionais; operadores bit-a-bit nao foram priorizados porque sao opcionais no PDF; a SaM usada e uma variante textual documentada neste README.
-
-```
                          __
                    _.--""  |
     .----.     _.-'   |/\| |.--.
