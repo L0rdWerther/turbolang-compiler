@@ -450,16 +450,16 @@ Parcial/opcional:
 
 ```bash
 # Compilar um arquivo
-python main.py programa.nova
+python main.py programa.turbo
 
 # Compilar com saída detalhada
-python main.py -v programa.nova
+python main.py -v programa.turbo
 
 # Salvar saída em arquivo
-python main.py programa.nova -o programa.sam
+python main.py programa.turbo -o programa.sam
 
 # Combinar opções
-python main.py -v programa.nova -o programa.sam
+python main.py -v programa.turbo -o programa.sam
 ```
 
 ### Como Biblioteca
@@ -468,7 +468,7 @@ python main.py -v programa.nova -o programa.sam
 from compiler import compile_file, compile_string
 
 # Compilar a partir de arquivo
-result = compile_file('programa.nova', verbose=True)
+result = compile_file('programa.turbo', verbose=True)
 if result.success:
     print(result.output)
 else:
@@ -640,7 +640,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 ### Pipeline de Compilação
 
 ```
-Código-Fonte (entrada.nova)
+Código-Fonte (entrada.turbo)
     ↓
 [Lexer] → Tokens
     ↓
