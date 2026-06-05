@@ -1,0 +1,16 @@
+func sum_array(int arr, int size) -> int {
+    int total = 0;
+    int i = 0;
+
+    while (i < size) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+
+    return total;
+}
+
+func main() {
+    // Sem declaração de array por enquanto
+    print(sum_array(0, 0));
+}

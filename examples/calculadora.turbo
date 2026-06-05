@@ -1,0 +1,30 @@
+func soma(int a, int b) -> int {
+    return a + b;
+}
+
+func subtracao(int a, int b) -> int {
+    return a - b;
+}
+
+func multiplicacao(int a, int b) -> int {
+    return a * b;
+}
+
+func divisao(int a, int b) -> int {
+    return a / b;
+}
+
+func main() {
+    int x = 20;
+    int y = 10;
+    
+    int rSoma = soma(x, y);
+    int rSub = subtracao(x, y);
+    int rMult = multiplicacao(x, y);
+    int rDiv = divisao(x, y);
+    
+    print(rSoma);
+    print(rSub);
+    print(rMult);
+    print(rDiv);
+}

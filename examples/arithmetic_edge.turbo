@@ -1,0 +1,13 @@
+func main() {
+    int x = -5;
+    print(x);
+    
+    int r = 5 - 20;
+    print(r);
+    
+    // Testar divisão por zero - pode causar erro em tempo de execução na VM, 
+    // mas o compilador deve compilar se não houver checagem estática.
+    // Se a VM lidar, deve imprimir erro.
+    int y = 0;
+    print(10 / y);
+}
