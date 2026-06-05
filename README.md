@@ -13,6 +13,7 @@ Compilador para **TurboLang**, uma linguagem de programação procedural.
       . `--' ;\__________________..--------. `--' ;--------'
        `-..-'                               `-..-'
 ```
+https://ascii.co.uk/art/formula1
 
 ## Visão Geral
 
