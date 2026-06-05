@@ -90,6 +90,13 @@ class SemanticAnalyzer:
         # Analyze function body
         if func.body:
             self.analyze_block(func.body)
+
+            if func.return_type and not self.block_guarantees_return(func.body):
+                raise SemanticError(
+                    f"Function {func.name} must return {func.return_type} on all paths"
+                )
+        elif func.return_type:
+            raise SemanticError(f"Function {func.name} must return {func.return_type}")
         
         self.symbol_table.pop_scope()
         self.current_function = None
@@ -212,15 +219,44 @@ class SemanticAnalyzer:
             raise SemanticError("Return statement outside function")
         
         if ret_stmt.value:
+            if not self.current_function_return_type:
+                raise SemanticError(
+                    f"Procedure {self.current_function} cannot return a value"
+                )
+
             ret_type = self.analyze_expression(ret_stmt.value)
-            if self.current_function_return_type:
-                if not TypeChecker.is_compatible_assignment(ret_type, self.current_function_return_type):
-                    raise SemanticError(
-                        f"Cannot return {ret_type} from function returning {self.current_function_return_type}"
-                    )
+            if not TypeChecker.is_compatible_assignment(ret_type, self.current_function_return_type):
+                raise SemanticError(
+                    f"Cannot return {ret_type} from function returning {self.current_function_return_type}"
+                )
         else:
             if self.current_function_return_type:
                 raise SemanticError(f"Function must return {self.current_function_return_type}")
+
+    def block_guarantees_return(self, block: Block) -> bool:
+        """Check whether every execution path through a block returns."""
+        for statement in block.statements:
+            if self.statement_guarantees_return(statement):
+                return True
+        return False
+
+    def statement_guarantees_return(self, stmt: Statement) -> bool:
+        """Check whether a statement always returns when reached."""
+        if isinstance(stmt, ReturnStatement):
+            return True
+
+        if isinstance(stmt, Block):
+            return self.block_guarantees_return(stmt)
+
+        if isinstance(stmt, IfStatement):
+            if not stmt.then_block or not stmt.else_block:
+                return False
+            return (
+                self.block_guarantees_return(stmt.then_block)
+                and self.block_guarantees_return(stmt.else_block)
+            )
+
+        return False
     
     def analyze_expression(self, expr: Expression) -> str:
         """

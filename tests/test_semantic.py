@@ -82,6 +82,32 @@ class TestSemanticAnalyzer(unittest.TestCase):
         """
         with self.assertRaises(SemanticError):
             self.analyze(code)
+
+    def test_typed_function_without_return_fails(self):
+        """Test error when a typed function does not return."""
+        code = """
+        func getValue() -> int {
+            int x = 1;
+        }
+
+        func main() {
+        }
+        """
+        with self.assertRaises(SemanticError):
+            self.analyze(code)
+
+    def test_procedure_returning_value_fails(self):
+        """Test error when a procedure returns a value."""
+        code = """
+        func log() {
+            return 1;
+        }
+
+        func main() {
+        }
+        """
+        with self.assertRaises(SemanticError):
+            self.analyze(code)
     
     def test_function_parameter_count(self):
         """Test error on function parameter count mismatch."""

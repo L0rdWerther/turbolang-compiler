@@ -101,6 +101,67 @@ class TestParser(unittest.TestCase):
         stmt = func.body.statements[0]
         self.assertIsInstance(stmt, IfStatement)
         self.assertIsNotNone(stmt.else_block)
+
+    def test_if_then_else_statement(self):
+        """Test parsing if-then-else statement."""
+        code = """
+        func main() {
+            if (true) then {
+                int x = 1;
+            } else {
+                int y = 2;
+            }
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[0]
+        self.assertIsInstance(stmt, IfStatement)
+        self.assertIsNotNone(stmt.else_block)
+
+    def test_if_entao_statement(self):
+        """Test parsing Portuguese then alias without else alias."""
+        code = """
+        func main() {
+            if (true) entao {
+                int x = 1;
+            }
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[0]
+        self.assertIsInstance(stmt, IfStatement)
+
+    def test_if_entao_senao_statement(self):
+        """Test parsing Portuguese then/else aliases."""
+        code = """
+        func main() {
+            if (true) entao {
+                int x = 1;
+            } senao {
+                int y = 2;
+            }
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[0]
+        self.assertIsInstance(stmt, IfStatement)
+        self.assertIsNotNone(stmt.else_block)
+
+    def test_if_entao_senao_accented_statement(self):
+        """Test parsing accented Portuguese then/else aliases."""
+        code = """
+        func main() {
+            if (true) então {
+                int x = 1;
+            } senão {
+                int y = 2;
+            }
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[0]
+        self.assertIsInstance(stmt, IfStatement)
+        self.assertIsNotNone(stmt.else_block)
     
     def test_while_statement(self):
         """Test parsing while loop."""

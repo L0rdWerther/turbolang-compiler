@@ -9,7 +9,12 @@ from lexer.token import TokenType
 KEYWORDS = {
     'func': TokenType.FUNC,
     'if': TokenType.IF,
+    'then': TokenType.THEN,
+    'entao': TokenType.THEN,
+    'então': TokenType.THEN,
     'else': TokenType.ELSE,
+    'senao': TokenType.ELSE,
+    'senão': TokenType.ELSE,
     'while': TokenType.WHILE,
     'return': TokenType.RETURN,
     'int': TokenType.INT,

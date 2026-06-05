@@ -248,6 +248,9 @@ class Parser:
         self.expect(TokenType.LPAREN)
         condition = self.parse_expression()
         self.expect(TokenType.RPAREN)
+
+        if self.match(TokenType.THEN):
+            self.advance()
         
         self.expect(TokenType.LBRACE)
         then_block = self.parse_block()

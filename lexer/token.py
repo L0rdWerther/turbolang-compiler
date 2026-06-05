@@ -23,6 +23,7 @@ class TokenType(Enum):
     IDENTIFIER = auto()
     FUNC = auto()
     IF = auto()
+    THEN = auto()
     ELSE = auto()
     WHILE = auto()
     RETURN = auto()

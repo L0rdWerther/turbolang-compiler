@@ -11,6 +11,8 @@ class OpCode(Enum):
     """SaM operation codes."""
     # Stack operations
     PUSH = auto()          # Push constant onto stack
+    PUSHF32 = auto()       # Push IEEE-754 single-precision float bits
+    PUSHS = auto()         # Push string literal for print-only support
     POP = auto()           # Pop from stack
     DUP = auto()           # Duplicate top of stack
     
@@ -18,6 +20,8 @@ class OpCode(Enum):
     LOAD = auto()          # Load variable onto stack
     STORE = auto()         # Store stack top into variable
     LOAD_INDEXED = auto()  # Load value from index
+    ENTER = auto()         # Allocate local slots in current frame
+    ITOF = auto()          # Convert int word to float32 word
     
     # Arithmetic
     ADD = auto()           # Add top two stack values
@@ -26,6 +30,12 @@ class OpCode(Enum):
     DIV = auto()           # Divide
     MOD = auto()           # Modulo
     NEG = auto()           # Negate
+    FADD = auto()          # Float32 add
+    FSUB = auto()          # Float32 subtract
+    FMUL = auto()          # Float32 multiply
+    FDIV = auto()          # Float32 divide
+    FMOD = auto()          # Float32 modulo
+    FNEG = auto()          # Float32 negate
     
     # Comparison
     EQ = auto()            # Equal
@@ -34,6 +44,12 @@ class OpCode(Enum):
     GT = auto()            # Greater than
     LE = auto()            # Less than or equal
     GE = auto()            # Greater than or equal
+    FEQ = auto()           # Float32 equal
+    FNE = auto()           # Float32 not equal
+    FLT = auto()           # Float32 less than
+    FGT = auto()           # Float32 greater than
+    FLE = auto()           # Float32 less than or equal
+    FGE = auto()           # Float32 greater than or equal
     
     # Logical
     AND = auto()           # Logical AND
@@ -51,6 +67,9 @@ class OpCode(Enum):
     
     # I/O
     PRINT = auto()         # Print stack top
+    PRINTC = auto()        # Print stack top as character code point
+    PRINTF32 = auto()      # Print stack top as IEEE-754 single-precision float
+    PRINTS = auto()        # Print string literal
     
     # Special
     LABEL = auto()         # Label (not an instruction)

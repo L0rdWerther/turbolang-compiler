@@ -1,5 +1,27 @@
 # Compilador TurboLang
 
+## Resumo para Entrega
+
+TurboLang e um compilador didatico para a disciplina de Compiladores. O objetivo do projeto e traduzir uma linguagem procedural de alto nivel para uma variante textual documentada de assembly SaM.
+
+Requisitos obrigatorios atendidos: funcoes/procedimentos, tipos `int`, `float` IEEE-754 simples/float32 e `char`, variaveis, constantes numericas, atribuicao, operadores aritmeticos, relacionais e logicos, estruturas `if then/entao else/senao`, repeticao `while`, analise lexica e sintatica manuais, analise semantica, geracao de codigo, testes e documentacao.
+
+Como executar:
+
+```powershell
+.\.venv\Scripts\python.exe main.py examples\hello.turbo
+.\.venv\Scripts\python.exe main.py examples\hello.turbo -o hello.sam
+```
+
+Como rodar os testes:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover tests
+.\.venv\Scripts\python.exe tests\test_all.py
+```
+
+Limitacoes opcionais conhecidas: strings tem suporte parcial para literais/impressao; vetores/arrays sao parciais/opcionais; operadores bit-a-bit nao foram priorizados porque sao opcionais no PDF; a SaM usada e uma variante textual documentada neste README.
+
 ```
                          __
                    _.--""  |
@@ -117,7 +139,7 @@ func main() {
 | `float` | Número de ponto flutuante | `3.14`, `2.0` |
 | `char` | Caractere único | `'a'`, `'\n'` |
 | `bool` | Valor booleano | `true`, `false` |
-| `string` | Cadeia de texto | `"hello"` |
+| `string` | Parcial/opcional: literal para impressao | `"hello"` |
 
 ### Variáveis
 
@@ -127,7 +149,6 @@ int x;
 float pi = 3.14;
 char letra = 'A';
 bool flag = true;
-string mensagem = "Olá";
 ```
 
 #### Atribuição
@@ -141,7 +162,7 @@ x = 42;
 - Float: `3.14`, `2.0`, `-1.5`
 - Caractere: `'a'`, `'1'`, `'\n'`
 - Booleano: `true`, `false`
-- String: `"hello"`, `"linha1\nlinha2"`
+- String: `"hello"`, `"linha1\nlinha2"` (parcial/opcional; uso principal em `print`)
 
 ### Operadores
 
@@ -374,6 +395,74 @@ Gera código assembly SaM a partir da AST.
 | PRINT | - | Imprime topo da pilha |
 | HALT | - | Encerra execução |
 
+### Variante SaM usada pelo projeto
+
+O assembly gerado por este compilador usa uma variante SaM textual documentada no proprio projeto. Cada valor ocupa uma palavra de pilha.
+
+#### Fluxo inicial
+
+O programa sempre inicia com:
+
+```sam
+JMP Lmain
+```
+
+`Lmain` e o rotulo gerado para a funcao `main`, mesmo quando `main` nao e a primeira funcao do arquivo-fonte. Isso evita executar acidentalmente a primeira rotina declarada.
+
+#### Protocolo de funcao
+
+| Instrucao | Operando | Significado |
+|-----------|----------|-------------|
+| `ENTER n` | quantidade de slots locais | Reserva `n` slots de variaveis locais no frame atual |
+| `CALL label argc` | rotulo e aridade | Chama `label` usando `argc` argumentos ja empilhados da esquerda para a direita |
+| `RET has_value` | `0` ou `1` | Retorna da funcao/procedimento; `1` indica que ha valor de retorno no topo da pilha |
+
+Convencao de frame:
+
+- argumentos sao empilhados pelo chamador da esquerda para a direita;
+- parametros usam offsets negativos relativos ao frame, de `-argc` ate `-1`;
+- variaveis locais usam offsets nao negativos, a partir de `0`;
+- `ENTER n` reserva os slots locais usados pela rotina, incluindo blocos internos;
+- `RET 1` preserva o valor de retorno para o chamador;
+- `RET 0` retorna de procedimento sem valor;
+- `main` encerra com `HALT`.
+
+#### Tipos em assembly
+
+| Tipo TurboLang | Representacao |
+|----------------|---------------|
+| `int` | palavra inteira |
+| `bool` | `0` para falso, `1` para verdadeiro |
+| `char` | codigo numerico do caractere, emitido com `PUSH <codigo>` |
+| `float` | `float32` IEEE-754, emitido como bits com `PUSHF32 0x...` |
+| `string` | suporte parcial para literal em `print`, emitido com `PUSHS`/`PRINTS` |
+
+Conversoes e operacoes de ponto flutuante:
+
+- `ITOF` converte uma palavra `int` para `float32`;
+- `FADD`, `FSUB`, `FMUL`, `FDIV`, `FMOD` operam sobre palavras `float32`;
+- `FNEG` nega `float32`;
+- `FEQ`, `FNE`, `FLT`, `FGT`, `FLE`, `FGE` comparam `float32`.
+
+#### Escopo obrigatorio e suporte parcial
+
+Obrigatorio neste projeto:
+
+- lexer, parser, AST e analise semantica para funcoes, variaveis, expressoes, `if`, `while`, `return` e `print`;
+- `if (...) then { ... } else { ... }`;
+- alias `entao` para `then`;
+- alias `senao` para `else`;
+- funcoes tipadas exigem retorno em todos os caminhos aceitos pela analise semantica;
+- procedimentos rejeitam `return` com valor;
+- geracao de assembly com entrada garantida por `main`;
+- literais `float` como `float32` IEEE-754;
+- literais `char` como codigo numerico.
+
+Parcial/opcional:
+
+- strings tem suporte limitado a literais e impressao; nao ha operacoes completas de string;
+- vetores/arrays aparecem em partes do parser/codegen antigo, mas nao estao completos como recurso obrigatorio da linguagem.
+
 ## Uso
 
 ### Linha de Comando
@@ -452,7 +541,9 @@ func main() {
 }
 ```
 
-### Operações com Arrays
+### Arrays/Vetores (Opcional/Parcial)
+
+Vetores/arrays aparecem em exemplos e partes do compilador, mas sao tratados como suporte parcial/opcional. O requisito obrigatorio do PDF nao depende desse recurso.
 ```turbolang
 func soma_array(int arr, int tamanho) -> int {
     int total = 0;
@@ -517,7 +608,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 
 ### Cobertura de Testes
 
-#### Testes do Lexer (14 testes)
+#### Testes do Lexer
 - ✅ Literais inteiros e de ponto flutuante
 - ✅ Literais de string e caractere
 - ✅ Identificadores e palavras-chave
@@ -526,7 +617,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 - ✅ Rastreamento de linha e coluna
 - ✅ Tratamento de erros (strings não terminadas, caracteres inválidos)
 
-#### Testes do Parser (14 testes)
+#### Testes do Parser
 - ✅ Declarações de funções
 - ✅ Parâmetros e tipos de retorno
 - ✅ Declarações e atribuições de variáveis
@@ -535,7 +626,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 - ✅ Chamadas de função
 - ✅ Tratamento de erros (delimitadores ausentes, erros sintáticos)
 
-#### Testes Semânticos (9 testes)
+#### Testes Semânticos
 - ✅ Declaração de variáveis e escopo
 - ✅ Verificação e validação de tipos
 - ✅ Validação de parâmetros de função
@@ -546,7 +637,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 - ✅ Verificação de compatibilidade de tipos
 - ✅ Validação de programa completo
 
-#### Testes de Geração de Código (6 testes)
+#### Testes de Geração de Código
 - ✅ Geração de programa simples
 - ✅ Compilação de literal inteiro
 - ✅ Operações aritméticas
@@ -554,7 +645,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 - ✅ Chamadas e retornos de função
 - ✅ Compilação de programa completo
 
-**Total: 83 testes unitários**
+**Total atual:** ver saida de `python -m unittest discover tests`.
 
 ## Arquitetura
 
