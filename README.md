@@ -61,16 +61,15 @@ turbolang-compiler/
 │   ├── test_parser.py    # Testes do parser
 │   ├── test_semantic.py  # Testes do analisador semântico
 │   ├── test_codegen.py   # Testes do gerador de código
-│   └── fixtures/
-│       ├── valid_programs/
-│       └── invalid_programs/
+│   └── test_all.py       # Testa todos os examples e testes
 │
 ├── examples/
 │   ├── hello.turbo
 │   ├── fibonacci.turbo
 │   ├── factorial.turbo
 │   ├── array_sum.turbo
-│   └── control_flow.turbo
+|   ├── control_flow.turbo
+│   └── ...
 │
 ├── compiler.py           # Orquestração principal do compilador
 ├── main.py              # Interface de linha de comando
