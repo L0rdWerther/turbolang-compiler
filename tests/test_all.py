@@ -2,6 +2,19 @@ import os
 import subprocess
 
 def run_all():
+    # 1. Rodar testes unitários
+    print("Executando testes unitários...")
+    test_result = subprocess.run(['py', '-m', 'unittest', 'discover', 'tests'], capture_output=True, text=True)
+    print(test_result.stdout)
+    if test_result.stderr:
+        print(test_result.stderr)
+    
+    if test_result.returncode == 0:
+        print("[PASS] Testes unitários aprovados.\n")
+    else:
+        print("[FAIL] Testes unitários falharam.\n")
+
+    # 2. Rodar compilação dos exemplos (já existente)
     examples_dir = 'examples'
     if not os.path.exists(examples_dir):
         print(f"Directory {examples_dir} not found.")
@@ -9,7 +22,7 @@ def run_all():
 
     files = [f for f in os.listdir(examples_dir) if f.endswith('.turbo')]
     
-    print(f"Iniciando compilação de {len(files)} arquivos...\n")
+    print(f"Iniciando compilação de {len(files)} exemplos...\n")
     
     for file in files:
         path = os.path.join(examples_dir, file)
