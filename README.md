@@ -430,7 +430,7 @@ Gera código assembly SaM a partir da AST.
 
 ### Variante SaM usada pelo projeto
 
-O assembly gerado por este compilador usa a variante SaM fornecida pelo professor. Cada valor ocupa uma palavra de pilha.
+O assembly gerado por este compilador usa a variante SaM textual do projeto. Cada valor ocupa uma palavra de pilha.
 
 #### Fluxo inicial
 

@@ -1,5 +1,5 @@
 """
-Reference SaM textual instruction helpers.
+SaM textual instruction helpers.
 
 The compiler backend emits text directly, but these definitions keep the
 instruction vocabulary documented in code for tests and tooling.
@@ -11,7 +11,7 @@ from typing import Any, List, Optional
 
 
 class OpCode(Enum):
-    """Operation names used by the reference Portugol SaM variant."""
+    """Operation names used by the project SaM variant."""
 
     # Stack and frame operations
     ADDSP = auto()

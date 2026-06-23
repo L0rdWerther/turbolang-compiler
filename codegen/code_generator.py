@@ -1,7 +1,6 @@
 """
 Code generator for TurboLang.
-Generates SaM assembly code using the same textual variant as the
-reference Portugol compiler.
+Generates SaM assembly code using the project's textual variant.
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -16,7 +15,7 @@ class CodeGenError(Exception):
 
 
 class CodeGenerator:
-    """Convert TurboLang AST nodes to the reference SaM textual variant."""
+    """Convert TurboLang AST nodes to the project SaM textual variant."""
 
     def __init__(self):
         self.lines: List[str] = []
