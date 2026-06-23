@@ -30,7 +30,8 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("HALT", assembly)
+        self.assertIn("STOP", assembly)
+        self.assertIn("JUMPIND", assembly)
     
     def test_integer_literal(self):
         """Test code generation for integer literal."""
@@ -40,7 +41,7 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("PUSH 42", assembly)
+        self.assertIn("PUSHIMM 42", assembly)
     
     def test_addition(self):
         """Test code generation for addition."""
@@ -65,7 +66,7 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("JZ", assembly)
+        self.assertIn("JUMPC", assembly)
     
     def test_while_loop(self):
         """Test code generation for while loop."""
@@ -77,8 +78,37 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("JZ", assembly)
-        self.assertIn("JMP", assembly)
+        self.assertIn("JUMPC", assembly)
+        self.assertIn("JUMP", assembly)
+
+    def test_do_while_loop(self):
+        """Test code generation for do-while loop."""
+        code = """
+        func main() {
+            int x = 0;
+            do {
+                x = x + 1;
+            } while (x < 3);
+        }
+        """
+        assembly = self.compile(code)
+        self.assertIn("JUMPC", assembly)
+        self.assertIn("LESS", assembly)
+
+    def test_counted_for_loop(self):
+        """Test code generation for counted for loop."""
+        code = """
+        func main() {
+            int i = 0;
+            for i = 1 to 3 {
+                print(i);
+            }
+        }
+        """
+        assembly = self.compile(code)
+        self.assertIn("GREATER", assembly)
+        self.assertIn("JUMPC", assembly)
+        self.assertIn("WRITE", assembly)
     
     def test_function_call(self):
         """Test code generation for function call."""
@@ -92,7 +122,7 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("CALL", assembly)
+        self.assertIn("JSR", assembly)
 
     def test_main_entry_jump_when_not_first_function(self):
         """Test that generated assembly starts by jumping to main."""
@@ -107,8 +137,9 @@ class TestCodeGenerator(unittest.TestCase):
         """
         assembly = self.compile(code)
         first_line = assembly.splitlines()[0]
-        self.assertRegex(first_line, r"^JMP L\d+$")
-        self.assertIn("CALL", assembly)
+        self.assertEqual(first_line, "ADDSP 1")
+        self.assertIn("JSR FUNCAO_main", assembly)
+        self.assertIn("JSR FUNCAO_helper", assembly)
 
     def test_call_has_argument_count_and_return_flag(self):
         """Test function protocol operands."""
@@ -122,9 +153,10 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertRegex(assembly, r"CALL L\d+ 2")
-        self.assertIn("RET 1", assembly)
-        self.assertIn("ENTER", assembly)
+        self.assertIn("JSR FUNCAO_add", assembly)
+        self.assertIn("POPFBR", assembly)
+        self.assertIn("ADDSP -2", assembly)
+        self.assertIn("JUMPIND", assembly)
 
     def test_float_literal_uses_float32_bits(self):
         """Test float literal emission as IEEE-754 single precision bits."""
@@ -134,7 +166,7 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("PUSHF32 0x3fc00000", assembly)
+        self.assertIn("PUSHIMMF 1.5", assembly)
 
     def test_int_to_float_conversion_and_float_operation(self):
         """Test int to float conversion and typed float arithmetic."""
@@ -145,7 +177,7 @@ class TestCodeGenerator(unittest.TestCase):
         """
         assembly = self.compile(code)
         self.assertIn("ITOF", assembly)
-        self.assertIn("FADD", assembly)
+        self.assertIn("ADDF", assembly)
 
     def test_char_literal_uses_numeric_code(self):
         """Test char literal emission as numeric code point."""
@@ -155,7 +187,7 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("PUSH 65", assembly)
+        self.assertIn("PUSHIMMCH 'A'", assembly)
 
     def test_if_then_else_codegen(self):
         """Test code generation for if-then-else."""
@@ -169,8 +201,8 @@ class TestCodeGenerator(unittest.TestCase):
         }
         """
         assembly = self.compile(code)
-        self.assertIn("JZ", assembly)
-        self.assertIn("JMP", assembly)
+        self.assertIn("JUMPC", assembly)
+        self.assertIn("JUMP", assembly)
 
 
 if __name__ == '__main__':

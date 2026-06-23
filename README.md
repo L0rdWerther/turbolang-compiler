@@ -1,9 +1,28 @@
 # Compilador TurboLang
 
+## Resumo para Entrega
+
 TurboLang e um compilador didatico para a disciplina de Compiladores. O objetivo do projeto e traduzir uma linguagem procedural de alto nivel para uma variante textual documentada de assembly SaM.
 
+Requisitos obrigatorios atendidos: funcoes/procedimentos, tipos `int`, `float` IEEE-754 simples/float32 e `char`, variaveis, constantes numericas, atribuicao, operadores aritmeticos, relacionais e logicos, estruturas `if then/entao else/senao`, repeticoes `while`, `do while`/`faca enquanto` e `for`/`para`, analise lexica e sintatica manuais, analise semantica, geracao de codigo, testes e documentacao.
+
+Como executar:
+
+```powershell
+.\.venv\Scripts\python.exe main.py examples\hello.turbo
+.\.venv\Scripts\python.exe main.py examples\hello.turbo -o hello.sam
 ```
 
+Como rodar os testes:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover tests
+.\.venv\Scripts\python.exe tests\test_all.py
+```
+
+Limitacoes opcionais conhecidas: strings tem suporte parcial para literais/impressao; vetores/arrays sao parciais/opcionais; operadores bit-a-bit nao foram priorizados porque sao opcionais no PDF; a SaM usada e uma variante textual documentada neste README.
+
+```
                          __
                    _.--""  |
     .----.     _.-'   |/\| |.--.
@@ -191,6 +210,34 @@ while (condicao) {
 }
 ```
 
+#### Laço Do While
+```turbolang
+do {
+    // corpo executado pelo menos uma vez
+} while (condicao);
+```
+
+Aliases aceitos:
+```turbolang
+faca {
+    // corpo executado pelo menos uma vez
+} enquanto (condicao);
+```
+
+#### Laço For Contado
+```turbolang
+for i = 1 to 10 {
+    print(i);
+}
+```
+
+Aliases aceitos:
+```turbolang
+para i = 1 ate 10 {
+    print(i);
+}
+```
+
 #### Instrução Return
 ```turbolang
 return valor;
@@ -232,6 +279,8 @@ statement     → var_decl
                | assignment
                | if_stmt
                | while_stmt
+               | do_while_stmt
+               | for_stmt
                | return_stmt
                | print_stmt
                | block
@@ -241,6 +290,8 @@ var_decl      → TYPE IDENTIFIER ('=' expression)? ';'
 assignment    → IDENTIFIER ('['expression']')? '=' expression ';'
 if_stmt       → 'if' '(' expression ')' block ('else' block)?
 while_stmt    → 'while' '(' expression ')' block
+do_while_stmt → 'do' block 'while' '(' expression ')' ';'
+for_stmt      → 'for' IDENTIFIER '=' expression 'to' expression block
 return_stmt   → 'return' expression? ';'
 print_stmt    → 'print' '(' expression ')' ';'
 expr_stmt     → expression ';'
@@ -349,64 +400,79 @@ Gera código assembly SaM a partir da AST.
 
 | Instrução | Operando | Descrição |
 |-----------|----------|-----------|
-| PUSH | valor | Empilha constante na pilha |
-| POP | - | Desempilha da pilha |
-| LOAD | offset | Carrega variável na pilha |
-| STORE | offset | Armazena topo da pilha na variável |
-| ADD | - | Soma os dois valores do topo |
+| ADDSP | quantidade | Ajusta o tamanho da pilha |
+| LINK | - | Cria o frame da chamada atual |
+| POPFBR | - | Restaura o frame anterior apos uma chamada |
+| PUSHIMM | valor | Empilha constante inteira/booleana |
+| PUSHIMMF | valor | Empilha constante real |
+| PUSHIMMCH | caractere | Empilha constante caractere |
+| PUSHOFF | offset | Carrega valor por offset do frame |
+| STOREOFF | offset | Armazena topo da pilha por offset do frame |
+| ADD | - | Soma |
 | SUB | - | Subtrai |
-| MUL | - | Multiplica |
+| TIMES | - | Multiplica |
 | DIV | - | Divide |
-| MOD | - | Módulo |
-| NEG | - | Nega |
-| EQ | - | Igual |
-| NE | - | Diferente |
-| LT | - | Menor que |
-| GT | - | Maior que |
-| LE | - | Menor ou igual |
-| GE | - | Maior ou igual |
+| MOD | - | Modulo |
+| ADDF | - | Soma reais |
+| SUBF | - | Subtrai reais |
+| TIMESF | - | Multiplica reais |
+| DIVF | - | Divide reais |
+| GREATER | - | Maior que |
+| LESS | - | Menor que |
+| EQUAL | - | Igual |
+| CMPF | - | Compara reais |
+| ISPOS | - | Testa resultado positivo |
+| ISNEG | - | Testa resultado negativo |
+| ISNIL | - | Testa resultado zero |
 | AND | - | E lógico |
 | OR | - | OU lógico |
 | NOT | - | NÃO lógico |
-| JMP | rótulo | Salto incondicional |
-| JZ | rótulo | Salta se zero |
-| JNZ | rótulo | Salta se não zero |
-| CALL | rótulo | Chama função |
-| RET | - | Retorna da função |
-| PRINT | - | Imprime topo da pilha |
-| HALT | - | Encerra execução |
+| JUMP | rótulo | Salto incondicional |
+| JUMPC | rótulo | Salta se o topo for verdadeiro |
+| JSR | rótulo | Chama subrotina/função |
+| JUMPIND | - | Retorna da função chamada |
+| WRITE | - | Imprime inteiro/booleano |
+| WRITEF | - | Imprime real |
+| WRITECH | - | Imprime caractere |
+| STOP | - | Encerra execução |
 
 ### Variante SaM usada pelo projeto
 
-O assembly gerado por este compilador usa uma variante SaM textual documentada no proprio projeto. Cada valor ocupa uma palavra de pilha.
+O assembly gerado por este compilador usa a mesma variante SaM textual do compilador Portugol de referencia. Cada valor ocupa uma palavra de pilha.
 
 #### Fluxo inicial
 
 O programa sempre inicia com:
 
 ```sam
-JMP Lmain
+ADDSP 1
+LINK
+JSR FUNCAO_main
+POPFBR
+STOP
 ```
 
-`Lmain` e o rotulo gerado para a funcao `main`, mesmo quando `main` nao e a primeira funcao do arquivo-fonte. Isso evita executar acidentalmente a primeira rotina declarada.
+`FUNCAO_main` e o rotulo gerado para a funcao `main`. O bootstrap reserva o slot de retorno, cria o frame, chama `main`, restaura o frame e finaliza com `STOP`.
 
 #### Protocolo de funcao
 
 | Instrucao | Operando | Significado |
 |-----------|----------|-------------|
-| `ENTER n` | quantidade de slots locais | Reserva `n` slots de variaveis locais no frame atual |
-| `CALL label argc` | rotulo e aridade | Chama `label` usando `argc` argumentos ja empilhados da esquerda para a direita |
-| `RET has_value` | `0` ou `1` | Retorna da funcao/procedimento; `1` indica que ha valor de retorno no topo da pilha |
+| `ADDSP 1` | - | Reserva o slot de retorno antes de uma chamada |
+| `LINK` | - | Inicia o frame da chamada |
+| `JSR FUNCAO_nome` | rotulo | Chama a funcao/procedimento |
+| `POPFBR` | - | Restaura o frame do chamador |
+| `JUMPIND` | - | Retorna ao chamador |
 
 Convencao de frame:
 
 - argumentos sao empilhados pelo chamador da esquerda para a direita;
 - parametros usam offsets negativos relativos ao frame, de `-argc` ate `-1`;
-- variaveis locais usam offsets nao negativos, a partir de `0`;
-- `ENTER n` reserva os slots locais usados pela rotina, incluindo blocos internos;
-- `RET 1` preserva o valor de retorno para o chamador;
-- `RET 0` retorna de procedimento sem valor;
-- `main` encerra com `HALT`.
+- o slot de retorno fica no offset `-(argc + 1)`;
+- variaveis locais usam offsets positivos a partir de `2`;
+- variaveis locais sao reservadas com `ADDSP 1`;
+- funcoes retornam armazenando o valor no slot de retorno e executando `JUMPIND`;
+- procedimentos retornam diretamente com `JUMPIND`.
 
 #### Tipos em assembly
 
@@ -414,16 +480,15 @@ Convencao de frame:
 |----------------|---------------|
 | `int` | palavra inteira |
 | `bool` | `0` para falso, `1` para verdadeiro |
-| `char` | codigo numerico do caractere, emitido com `PUSH <codigo>` |
-| `float` | `float32` IEEE-754, emitido como bits com `PUSHF32 0x...` |
-| `string` | suporte parcial para literal em `print`, emitido com `PUSHS`/`PRINTS` |
+| `char` | caractere literal, emitido com `PUSHIMMCH` |
+| `float` | real emitido com `PUSHIMMF` |
+| `string` | suporte parcial para literal em `print`, emitido com `PUSHS`/`WRITES` |
 
 Conversoes e operacoes de ponto flutuante:
 
 - `ITOF` converte uma palavra `int` para `float32`;
-- `FADD`, `FSUB`, `FMUL`, `FDIV`, `FMOD` operam sobre palavras `float32`;
-- `FNEG` nega `float32`;
-- `FEQ`, `FNE`, `FLT`, `FGT`, `FLE`, `FGE` comparam `float32`.
+- `ADDF`, `SUBF`, `TIMESF`, `DIVF` operam sobre reais;
+- comparacoes de reais usam `CMPF` seguido de `ISPOS`, `ISNEG`, `ISNIL` e, quando necessario, `NOT`.
 
 #### Escopo obrigatorio e suporte parcial
 
@@ -450,16 +515,16 @@ Parcial/opcional:
 
 ```bash
 # Compilar um arquivo
-python main.py programa.turbo
+python main.py programa.nova
 
 # Compilar com saída detalhada
-python main.py -v programa.turbo
+python main.py -v programa.nova
 
 # Salvar saída em arquivo
-python main.py programa.turbo -o programa.sam
+python main.py programa.nova -o programa.sam
 
 # Combinar opções
-python main.py -v programa.turbo -o programa.sam
+python main.py -v programa.nova -o programa.sam
 ```
 
 ### Como Biblioteca
@@ -468,7 +533,7 @@ python main.py -v programa.turbo -o programa.sam
 from compiler import compile_file, compile_string
 
 # Compilar a partir de arquivo
-result = compile_file('programa.turbo', verbose=True)
+result = compile_file('programa.nova', verbose=True)
 if result.success:
     print(result.output)
 else:
@@ -640,7 +705,7 @@ python -m unittest tests.test_lexer.TestLexer.test_integer_literal
 ### Pipeline de Compilação
 
 ```
-Código-Fonte (entrada.turbo)
+Código-Fonte (entrada.nova)
     ↓
 [Lexer] → Tokens
     ↓
@@ -693,25 +758,35 @@ func main() {
 ### Assembly SaM Gerado
 
 ```
-; função main
-L0:
-PUSH 5
-STORE 0        ; x = 5
-PUSH 3
-STORE 1        ; y = 3
-LOAD 0         ; empilha x
-LOAD 1         ; empilha y
-CALL L1        ; chama add(x, y)
-PRINT
-HALT
+ADDSP 1
+LINK
+JSR FUNCAO_main
+POPFBR
+STOP
 
-; add(int a, int b) -> int
-; 'a' está no offset 0, 'b' no offset 1 relativo ao frame
-L1:
-LOAD 0         ; carrega a
-LOAD 1         ; carrega b
+FUNCAO_add:
+PUSHOFF -2
+PUSHOFF -1
 ADD
-RET
+STOREOFF -3
+JUMPIND
+FUNCAO_main:
+ADDSP 1
+ADDSP 1
+PUSHIMM 5
+STOREOFF 2
+PUSHIMM 3
+STOREOFF 3
+ADDSP 1
+PUSHOFF 2
+PUSHOFF 3
+LINK
+JSR FUNCAO_add
+POPFBR
+ADDSP -2
+WRITE
+ADDSP -2
+JUMPIND
 ```
 
 ## Características de Desempenho

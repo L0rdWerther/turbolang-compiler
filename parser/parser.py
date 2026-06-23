@@ -196,6 +196,14 @@ class Parser:
         # While loop
         if self.match(TokenType.WHILE):
             return self.parse_while_statement()
+
+        # Do-while loop
+        if self.match(TokenType.DO):
+            return self.parse_do_while_statement()
+
+        # Counted for loop
+        if self.match(TokenType.FOR):
+            return self.parse_for_statement()
         
         # Return statement
         if self.match(TokenType.RETURN):
@@ -286,6 +294,59 @@ class Parser:
         
         return WhileStatement(
             condition=condition,
+            body=body,
+            line=line,
+            column=column
+        )
+
+    def parse_do_while_statement(self) -> DoWhileStatement:
+        """Parse do-while loop."""
+        token = self.expect(TokenType.DO)
+        line, column = token.line, token.column
+
+        self.expect(TokenType.LBRACE)
+        body = self.parse_block()
+        self.expect(TokenType.RBRACE)
+
+        self.expect(TokenType.WHILE)
+        self.expect(TokenType.LPAREN)
+        condition = self.parse_expression()
+        self.expect(TokenType.RPAREN)
+        self.expect(TokenType.SEMICOLON)
+
+        return DoWhileStatement(
+            body=body,
+            condition=condition,
+            line=line,
+            column=column
+        )
+
+    def parse_for_statement(self) -> ForStatement:
+        """Parse counted for loop."""
+        token = self.expect(TokenType.FOR)
+        line, column = token.line, token.column
+
+        has_parens = self.match(TokenType.LPAREN)
+        if has_parens:
+            self.advance()
+
+        name_token = self.expect(TokenType.IDENTIFIER)
+        self.expect(TokenType.ASSIGN)
+        start = self.parse_expression()
+        self.expect(TokenType.TO)
+        end = self.parse_expression()
+
+        if has_parens:
+            self.expect(TokenType.RPAREN)
+
+        self.expect(TokenType.LBRACE)
+        body = self.parse_block()
+        self.expect(TokenType.RBRACE)
+
+        return ForStatement(
+            variable=name_token.value,
+            start=start,
+            end=end,
             body=body,
             line=line,
             column=column

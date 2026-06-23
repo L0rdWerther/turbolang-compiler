@@ -335,7 +335,7 @@ class TestCompilerIntegrity(unittest.TestCase):
         assembly = codegen.generate(program)
         self.assertIsInstance(assembly, str)
         self.assertGreater(len(assembly), 0)
-        self.assertIn("HALT", assembly)
+        self.assertIn("STOP", assembly)
 
     def test_compiler_basic_functionality(self):
         """Test that compiler can compile complete program."""
@@ -346,7 +346,7 @@ class TestCompilerIntegrity(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertIsNotNone(result.output)
-        self.assertIn("HALT", result.output)
+        self.assertIn("STOP", result.output)
 
     # ============================================================================
     # END-TO-END TESTS
@@ -370,10 +370,10 @@ class TestCompilerIntegrity(unittest.TestCase):
 
         result = compile_string(code)
         self.assertTrue(result.success, f"Compilation failed: {result.error}")
-        self.assertIn("PUSH", result.output)
+        self.assertIn("PUSHIMM", result.output)
         self.assertIn("ADD", result.output)
-        self.assertIn("PRINT", result.output)
-        self.assertIn("HALT", result.output)
+        self.assertIn("WRITE", result.output)
+        self.assertIn("STOP", result.output)
 
     def test_end_to_end_with_control_flow(self):
         """Test compilation with control flow structures."""
@@ -392,8 +392,8 @@ class TestCompilerIntegrity(unittest.TestCase):
 
         result = compile_string(code)
         self.assertTrue(result.success, f"Compilation failed: {result.error}")
-        self.assertIn("JZ", result.output)
-        self.assertIn("JMP", result.output)
+        self.assertIn("JUMPC", result.output)
+        self.assertIn("JUMP", result.output)
 
     def test_end_to_end_with_while_loop(self):
         """Test compilation with while loop."""
@@ -410,8 +410,8 @@ class TestCompilerIntegrity(unittest.TestCase):
 
         result = compile_string(code)
         self.assertTrue(result.success, f"Compilation failed: {result.error}")
-        self.assertIn("JZ", result.output)
-        self.assertIn("JMP", result.output)
+        self.assertIn("JUMPC", result.output)
+        self.assertIn("JUMP", result.output)
 
     def test_end_to_end_fibonacci(self):
         """Test compilation of fibonacci function."""
@@ -432,8 +432,8 @@ class TestCompilerIntegrity(unittest.TestCase):
 
         result = compile_string(code)
         self.assertTrue(result.success, f"Compilation failed: {result.error}")
-        self.assertIn("CALL", result.output)
-        self.assertIn("RET", result.output)
+        self.assertIn("JSR", result.output)
+        self.assertIn("JUMPIND", result.output)
 
     # ============================================================================
     # ERROR HANDLING TESTS
@@ -602,15 +602,15 @@ class TestCompilerIntegrity(unittest.TestCase):
         buffer = InstructionBuffer()
 
         # Emit instructions
-        buffer.emit(OpCode.PUSH, 42)
-        buffer.emit(OpCode.PUSH, 10)
+        buffer.emit(OpCode.PUSHIMM, 42)
+        buffer.emit(OpCode.PUSHIMM, 10)
         buffer.emit(OpCode.ADD)
-        buffer.emit(OpCode.PRINT)
-        buffer.emit(OpCode.HALT)
+        buffer.emit(OpCode.WRITE)
+        buffer.emit(OpCode.STOP)
 
         instructions = buffer.get_instructions()
         self.assertEqual(len(instructions), 5)
-        self.assertEqual(instructions[0].opcode, OpCode.PUSH)
+        self.assertEqual(instructions[0].opcode, OpCode.PUSHIMM)
         self.assertEqual(instructions[0].operand, 42)
 
     # ============================================================================

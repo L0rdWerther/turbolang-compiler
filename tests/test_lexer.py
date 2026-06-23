@@ -122,6 +122,18 @@ class TestLexer(unittest.TestCase):
         self.assertEqual(tokens[1].type, TokenType.FALSE)
         self.assertFalse(tokens[1].value)
 
+    def test_loop_keywords(self):
+        """Test counted and post-test loop keywords."""
+        lexer = Lexer("do for to faca para ate enquanto")
+        tokens = lexer.tokenize()
+        self.assertEqual(tokens[0].type, TokenType.DO)
+        self.assertEqual(tokens[1].type, TokenType.FOR)
+        self.assertEqual(tokens[2].type, TokenType.TO)
+        self.assertEqual(tokens[3].type, TokenType.DO)
+        self.assertEqual(tokens[4].type, TokenType.FOR)
+        self.assertEqual(tokens[5].type, TokenType.TO)
+        self.assertEqual(tokens[6].type, TokenType.WHILE)
+
 
 if __name__ == '__main__':
     unittest.main()

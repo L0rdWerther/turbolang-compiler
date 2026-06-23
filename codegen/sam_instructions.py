@@ -1,131 +1,114 @@
 """
-SaM (Simple Abstract Machine) instruction definitions and generation.
+Reference SaM textual instruction helpers.
+
+The compiler backend emits text directly, but these definitions keep the
+instruction vocabulary documented in code for tests and tooling.
 """
 
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
 
 class OpCode(Enum):
-    """SaM operation codes."""
-    # Stack operations
-    PUSH = auto()          # Push constant onto stack
-    PUSHF32 = auto()       # Push IEEE-754 single-precision float bits
-    PUSHS = auto()         # Push string literal for print-only support
-    POP = auto()           # Pop from stack
-    DUP = auto()           # Duplicate top of stack
-    
-    # Load/Store
-    LOAD = auto()          # Load variable onto stack
-    STORE = auto()         # Store stack top into variable
-    LOAD_INDEXED = auto()  # Load value from index
-    ENTER = auto()         # Allocate local slots in current frame
-    ITOF = auto()          # Convert int word to float32 word
-    
+    """Operation names used by the reference Portugol SaM variant."""
+
+    # Stack and frame operations
+    ADDSP = auto()
+    LINK = auto()
+    POPFBR = auto()
+
+    # Constants
+    PUSHIMM = auto()
+    PUSHIMMF = auto()
+    PUSHIMMCH = auto()
+    PUSHS = auto()
+
+    # Load/store
+    PUSHOFF = auto()
+    STOREOFF = auto()
+    PUSHIND = auto()
+    ITOF = auto()
+
     # Arithmetic
-    ADD = auto()           # Add top two stack values
-    SUB = auto()           # Subtract
-    MUL = auto()           # Multiply
-    DIV = auto()           # Divide
-    MOD = auto()           # Modulo
-    NEG = auto()           # Negate
-    FADD = auto()          # Float32 add
-    FSUB = auto()          # Float32 subtract
-    FMUL = auto()          # Float32 multiply
-    FDIV = auto()          # Float32 divide
-    FMOD = auto()          # Float32 modulo
-    FNEG = auto()          # Float32 negate
-    
-    # Comparison
-    EQ = auto()            # Equal
-    NE = auto()            # Not equal
-    LT = auto()            # Less than
-    GT = auto()            # Greater than
-    LE = auto()            # Less than or equal
-    GE = auto()            # Greater than or equal
-    FEQ = auto()           # Float32 equal
-    FNE = auto()           # Float32 not equal
-    FLT = auto()           # Float32 less than
-    FGT = auto()           # Float32 greater than
-    FLE = auto()           # Float32 less than or equal
-    FGE = auto()           # Float32 greater than or equal
-    
-    # Logical
-    AND = auto()           # Logical AND
-    OR = auto()            # Logical OR
-    NOT = auto()           # Logical NOT
-    
-    # Control flow
-    JMP = auto()           # Unconditional jump
-    JZ = auto()            # Jump if zero
-    JNZ = auto()           # Jump if not zero
-    
-    # Functions
-    CALL = auto()          # Call function
-    RET = auto()           # Return from function
-    
+    ADD = auto()
+    SUB = auto()
+    TIMES = auto()
+    DIV = auto()
+    MOD = auto()
+    ADDF = auto()
+    SUBF = auto()
+    TIMESF = auto()
+    DIVF = auto()
+
+    # Comparison and logic
+    GREATER = auto()
+    LESS = auto()
+    EQUAL = auto()
+    CMPF = auto()
+    ISPOS = auto()
+    ISNEG = auto()
+    ISNIL = auto()
+    AND = auto()
+    OR = auto()
+    NOT = auto()
+
+    # Control flow and calls
+    JUMP = auto()
+    JUMPC = auto()
+    JSR = auto()
+    JUMPIND = auto()
+
     # I/O
-    PRINT = auto()         # Print stack top
-    PRINTC = auto()        # Print stack top as character code point
-    PRINTF32 = auto()      # Print stack top as IEEE-754 single-precision float
-    PRINTS = auto()        # Print string literal
-    
+    WRITE = auto()
+    WRITEF = auto()
+    WRITECH = auto()
+    WRITES = auto()
+
     # Special
-    LABEL = auto()         # Label (not an instruction)
-    HALT = auto()          # Stop execution
+    LABEL = auto()
+    STOP = auto()
 
 
 @dataclass
 class Instruction:
-    """Represents a SaM instruction."""
+    """Represents one textual SaM instruction."""
+
     opcode: OpCode
     operand: Optional[Any] = None
     label: Optional[str] = None
-    
+
     def __str__(self) -> str:
         if self.label:
             return f"{self.label}:"
-        
+
         if self.operand is not None:
             return f"{self.opcode.name} {self.operand}"
-        else:
-            return self.opcode.name
+        return self.opcode.name
 
 
 class InstructionBuffer:
-    """Buffer for accumulating instructions."""
-    
+    """Small buffer for tests or tools that need to assemble SaM lines."""
+
     def __init__(self):
-        """Initialize instruction buffer."""
         self.instructions: List[Instruction] = []
         self.label_counter = 0
-    
+
     def emit(self, opcode: OpCode, operand: Optional[Any] = None) -> None:
-        """Emit an instruction."""
         self.instructions.append(Instruction(opcode, operand))
-    
+
     def emit_label(self, label: str) -> None:
-        """Emit a label."""
         self.instructions.append(Instruction(OpCode.LABEL, label=label))
-    
-    def generate_label(self) -> str:
-        """Generate a unique label."""
-        label = f"L{self.label_counter}"
+
+    def generate_label(self, prefix: str = "LABEL") -> str:
         self.label_counter += 1
-        return label
-    
+        return f"{prefix}_{self.label_counter}"
+
     def get_current_address(self) -> int:
-        """Get current instruction address."""
         return len(self.instructions)
-    
+
     def get_instructions(self) -> List[Instruction]:
-        """Get all instructions."""
         return self.instructions.copy()
-    
+
     def get_code(self) -> str:
-        """Get assembly code as string."""
-        lines = []
-        for instr in self.instructions:
-            lines.append(str(instr))
-        return "\n".join(lines)
+        return "\n".join(str(instr) for instr in self.instructions)

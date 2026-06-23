@@ -86,6 +86,22 @@ class WhileStatement(Statement):
 
 
 @dataclass
+class DoWhileStatement(Statement):
+    """Do-while loop."""
+    body: Optional['Block'] = None
+    condition: Optional['Expression'] = None
+
+
+@dataclass
+class ForStatement(Statement):
+    """Counted for loop."""
+    variable: str = ""
+    start: Optional['Expression'] = None
+    end: Optional['Expression'] = None
+    body: Optional['Block'] = None
+
+
+@dataclass
 class ReturnStatement(Statement):
     """Return statement."""
     value: Optional['Expression'] = None

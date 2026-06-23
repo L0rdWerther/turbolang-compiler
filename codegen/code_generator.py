@@ -1,15 +1,13 @@
 """
 Code generator for TurboLang.
-Generates SaM assembly code from the AST.
+Generates SaM assembly code using the same textual variant as the
+reference Portugol compiler.
 """
 
-import struct
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from parser.ast_nodes import *
-from semantic.symbol_table import SymbolTable
 from semantic.type_checker import TypeChecker
-from codegen.sam_instructions import InstructionBuffer, OpCode
 
 
 class CodeGenError(Exception):
@@ -18,67 +16,107 @@ class CodeGenError(Exception):
 
 
 class CodeGenerator:
-    """
-    Code generator for TurboLang.
-    Converts AST to the documented TurboLang SaM variant.
-    """
+    """Convert TurboLang AST nodes to the reference SaM textual variant."""
 
     def __init__(self):
-        self.buffer = InstructionBuffer()
-        self.symbol_table = SymbolTable()
+        self.lines: List[str] = []
+        self.scopes: List[Dict[str, Tuple[str, int]]] = [{}]
+        self.next_local_offset = 2
+        self.label_counter = 0
         self.function_table: Dict[str, Tuple[Optional[str], List[str]]] = {}
         self.function_param_types: Dict[str, List[str]] = {}
         self.current_function: Optional[str] = None
         self.current_return_type: Optional[str] = None
-        self.function_labels: Dict[str, str] = {}
+        self.current_arg_count = 0
+        self.current_local_count = 0
+
+    def emit(self, instruction: str) -> None:
+        self.lines.append(instruction)
+
+    def emit_label(self, label: str) -> None:
+        self.lines.append(f"{label}:")
+
+    def new_label(self, prefix: str) -> str:
+        self.label_counter += 1
+        return f"{prefix}_{self.label_counter}"
+
+    def push_scope(self) -> None:
+        self.scopes.append({})
+
+    def pop_scope(self) -> None:
+        if len(self.scopes) > 1:
+            self.scopes.pop()
+
+    def define_symbol(self, name: str, type_name: str, offset: int) -> None:
+        self.scopes[-1][name] = (type_name, offset)
+
+    def lookup_symbol(self, name: str) -> Optional[Tuple[str, int]]:
+        for scope in reversed(self.scopes):
+            if name in scope:
+                return scope[name]
+        return None
+
+    def require_symbol(self, name: str) -> Tuple[str, int]:
+        symbol = self.lookup_symbol(name)
+        if not symbol:
+            raise CodeGenError(f"Undefined variable: {name}")
+        return symbol
 
     def generate(self, program: Program) -> str:
         for func in program.functions:
-            label = self.buffer.generate_label()
-            self.function_labels[func.name] = label
             self.function_table[func.name] = (
                 func.return_type,
-                [p.name for p in func.parameters],
+                [param.name for param in func.parameters],
             )
-            self.function_param_types[func.name] = [p.type_name for p in func.parameters]
+            self.function_param_types[func.name] = [param.type_name for param in func.parameters]
 
-        if 'main' not in self.function_labels:
+        if "main" not in self.function_table:
             raise CodeGenError("No main function defined")
 
-        self.buffer.emit(OpCode.JMP, self.function_labels['main'])
+        self.emit("ADDSP 1")
+        self.emit("LINK")
+        self.emit("JSR FUNCAO_main")
+        self.emit("POPFBR")
+        self.emit("STOP")
 
         for func in program.functions:
             self.generate_function(func)
 
-        return self.buffer.get_code()
+        return "\n".join(self.lines)
 
     def generate_function(self, func: FunctionDecl) -> None:
         self.current_function = func.name
         self.current_return_type = func.return_type
-        self.symbol_table.push_scope()
-        self.symbol_table.reset_offset()
+        self.current_arg_count = len(func.parameters)
+        self.current_local_count = self.count_locals(func.body) if func.body else 0
+        self.next_local_offset = 2
+        self.scopes = [{}]
 
-        self.buffer.emit_label(self.function_labels[func.name])
+        self.emit_label(f"FUNCAO_{func.name}")
 
-        argc = len(func.parameters)
-        for index, param in enumerate(func.parameters):
-            symbol = self.symbol_table.define(param.name, param.type_name, is_parameter=True)
-            symbol.offset = index - argc
+        offset = -1
+        for param in reversed(func.parameters):
+            self.define_symbol(param.name, param.type_name, offset)
+            offset -= 1
 
-        self.symbol_table.reset_offset()
-        self.buffer.emit(OpCode.ENTER, self.count_locals(func.body) if func.body else 0)
+        for _ in range(self.current_local_count):
+            self.emit("ADDSP 1")
 
         if func.body:
             self.generate_block(func.body)
 
-        if func.name == 'main':
-            self.buffer.emit(OpCode.HALT)
-        elif not func.return_type:
-            self.buffer.emit(OpCode.RET, 0)
+        if not self.lines[-1].endswith("JUMPIND"):
+            self.emit_function_epilogue()
 
-        self.symbol_table.pop_scope()
         self.current_function = None
         self.current_return_type = None
+        self.current_arg_count = 0
+        self.current_local_count = 0
+
+    def emit_function_epilogue(self) -> None:
+        if self.current_local_count > 0:
+            self.emit(f"ADDSP -{self.current_local_count}")
+        self.emit("JUMPIND")
 
     def generate_block(self, block: Block) -> None:
         for stmt in block.statements:
@@ -86,9 +124,9 @@ class CodeGenerator:
 
     def generate_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, Block):
-            self.symbol_table.push_scope()
+            self.push_scope()
             self.generate_block(stmt)
-            self.symbol_table.pop_scope()
+            self.pop_scope()
         elif isinstance(stmt, VariableDecl):
             self.generate_variable_decl(stmt)
         elif isinstance(stmt, Assignment):
@@ -96,83 +134,116 @@ class CodeGenerator:
         elif isinstance(stmt, ExpressionStatement):
             if stmt.expression:
                 self.generate_expression(stmt.expression)
-                if self.expression_type(stmt.expression) != 'void':
-                    self.buffer.emit(OpCode.POP)
+                if self.expression_type(stmt.expression) != "void":
+                    self.emit("ADDSP -1")
         elif isinstance(stmt, IfStatement):
             self.generate_if_statement(stmt)
         elif isinstance(stmt, WhileStatement):
             self.generate_while_statement(stmt)
+        elif isinstance(stmt, DoWhileStatement):
+            self.generate_do_while_statement(stmt)
+        elif isinstance(stmt, ForStatement):
+            self.generate_for_statement(stmt)
         elif isinstance(stmt, ReturnStatement):
             self.generate_return_statement(stmt)
         elif isinstance(stmt, PrintStatement):
             self.generate_print_statement(stmt)
 
     def generate_variable_decl(self, decl: VariableDecl) -> None:
-        self.symbol_table.define(decl.name, decl.type_name)
+        offset = self.next_local_offset
+        self.next_local_offset += 1
+        self.define_symbol(decl.name, decl.type_name, offset)
 
         if decl.initial_value:
             self.generate_expression(decl.initial_value)
             self.emit_assignment_conversion(self.expression_type(decl.initial_value), decl.type_name)
-            symbol = self.symbol_table.lookup(decl.name)
-            self.buffer.emit(OpCode.STORE, symbol.offset)
+            self.emit(f"STOREOFF {offset}")
 
     def generate_assignment(self, assign: Assignment) -> None:
+        if assign.index:
+            raise CodeGenError("Array assignment is not supported by the reference SaM variant")
+
+        target_type, offset = self.require_symbol(assign.target)
         self.generate_expression(assign.value)
-
-        symbol = self.symbol_table.lookup(assign.target)
-        if not symbol:
-            raise CodeGenError(f"Undefined variable: {assign.target}")
-
-        self.emit_assignment_conversion(self.expression_type(assign.value), symbol.type_name)
-        self.buffer.emit(OpCode.STORE, symbol.offset)
+        self.emit_assignment_conversion(self.expression_type(assign.value), target_type)
+        self.emit(f"STOREOFF {offset}")
 
     def generate_if_statement(self, if_stmt: IfStatement) -> None:
+        true_label = self.new_label("VERDADEIRO")
+        end_label = self.new_label("FIM_SE")
+
+        self.generate_expression(if_stmt.condition)
+        self.emit(f"JUMPC {true_label}")
+
         if if_stmt.else_block:
-            else_label = self.buffer.generate_label()
-            end_label = self.buffer.generate_label()
-
-            self.generate_expression(if_stmt.condition)
-            self.buffer.emit(OpCode.JZ, else_label)
-
-            if if_stmt.then_block:
-                self.symbol_table.push_scope()
-                self.generate_block(if_stmt.then_block)
-                self.symbol_table.pop_scope()
-
-            self.buffer.emit(OpCode.JMP, end_label)
-            self.buffer.emit_label(else_label)
-            self.symbol_table.push_scope()
+            self.push_scope()
             self.generate_block(if_stmt.else_block)
-            self.symbol_table.pop_scope()
-            self.buffer.emit_label(end_label)
-        else:
-            end_label = self.buffer.generate_label()
+            self.pop_scope()
 
-            self.generate_expression(if_stmt.condition)
-            self.buffer.emit(OpCode.JZ, end_label)
+        self.emit(f"JUMP {end_label}")
+        self.emit_label(true_label)
 
-            if if_stmt.then_block:
-                self.symbol_table.push_scope()
-                self.generate_block(if_stmt.then_block)
-                self.symbol_table.pop_scope()
+        if if_stmt.then_block:
+            self.push_scope()
+            self.generate_block(if_stmt.then_block)
+            self.pop_scope()
 
-            self.buffer.emit_label(end_label)
+        self.emit_label(end_label)
 
     def generate_while_statement(self, while_stmt: WhileStatement) -> None:
-        loop_label = self.buffer.generate_label()
-        end_label = self.buffer.generate_label()
+        start_label = self.new_label("ENQUANTO_INICIO")
+        end_label = self.new_label("ENQUANTO_FIM")
 
-        self.buffer.emit_label(loop_label)
+        self.emit_label(start_label)
         self.generate_expression(while_stmt.condition)
-        self.buffer.emit(OpCode.JZ, end_label)
+        self.emit("NOT")
+        self.emit(f"JUMPC {end_label}")
 
         if while_stmt.body:
-            self.symbol_table.push_scope()
+            self.push_scope()
             self.generate_block(while_stmt.body)
-            self.symbol_table.pop_scope()
+            self.pop_scope()
 
-        self.buffer.emit(OpCode.JMP, loop_label)
-        self.buffer.emit_label(end_label)
+        self.emit(f"JUMP {start_label}")
+        self.emit_label(end_label)
+
+    def generate_do_while_statement(self, do_stmt: DoWhileStatement) -> None:
+        start_label = self.new_label("FACA_INICIO")
+
+        self.emit_label(start_label)
+        if do_stmt.body:
+            self.push_scope()
+            self.generate_block(do_stmt.body)
+            self.pop_scope()
+
+        self.generate_expression(do_stmt.condition)
+        self.emit(f"JUMPC {start_label}")
+
+    def generate_for_statement(self, for_stmt: ForStatement) -> None:
+        _, offset = self.require_symbol(for_stmt.variable)
+        start_label = self.new_label("PARA_INICIO")
+        end_label = self.new_label("PARA_FIM")
+
+        self.generate_expression(for_stmt.start)
+        self.emit(f"STOREOFF {offset}")
+
+        self.emit_label(start_label)
+        self.emit(f"PUSHOFF {offset}")
+        self.generate_expression(for_stmt.end)
+        self.emit("GREATER")
+        self.emit(f"JUMPC {end_label}")
+
+        if for_stmt.body:
+            self.push_scope()
+            self.generate_block(for_stmt.body)
+            self.pop_scope()
+
+        self.emit(f"PUSHOFF {offset}")
+        self.emit("PUSHIMM 1")
+        self.emit("ADD")
+        self.emit(f"STOREOFF {offset}")
+        self.emit(f"JUMP {start_label}")
+        self.emit_label(end_label)
 
     def generate_return_statement(self, ret_stmt: ReturnStatement) -> None:
         if ret_stmt.value:
@@ -182,8 +253,10 @@ class CodeGenerator:
                     self.expression_type(ret_stmt.value),
                     self.current_return_type,
                 )
+            return_offset = -(self.current_arg_count + 1)
+            self.emit(f"STOREOFF {return_offset}")
 
-        self.buffer.emit(OpCode.RET, 1 if ret_stmt.value else 0)
+        self.emit_function_epilogue()
 
     def generate_print_statement(self, stmt: PrintStatement) -> None:
         if not stmt.argument:
@@ -191,23 +264,21 @@ class CodeGenerator:
 
         self.generate_expression(stmt.argument)
         arg_type = self.expression_type(stmt.argument)
-        if arg_type == 'float':
-            self.buffer.emit(OpCode.PRINTF32)
-        elif arg_type == 'char':
-            self.buffer.emit(OpCode.PRINTC)
-        elif arg_type == 'string':
-            self.buffer.emit(OpCode.PRINTS)
+        if arg_type == "float":
+            self.emit("WRITEF")
+        elif arg_type == "char":
+            self.emit("WRITECH")
+        elif arg_type == "string":
+            self.emit("WRITES")
         else:
-            self.buffer.emit(OpCode.PRINT)
+            self.emit("WRITE")
 
     def generate_expression(self, expr: Expression) -> None:
         if isinstance(expr, Literal):
             self.generate_literal(expr)
         elif isinstance(expr, Identifier):
-            symbol = self.symbol_table.lookup(expr.name)
-            if not symbol:
-                raise CodeGenError(f"Undefined variable: {expr.name}")
-            self.buffer.emit(OpCode.LOAD, symbol.offset)
+            _, offset = self.require_symbol(expr.name)
+            self.emit(f"PUSHOFF {offset}")
         elif isinstance(expr, BinaryExpression):
             self.generate_binary_expression(expr)
         elif isinstance(expr, UnaryExpression):
@@ -223,96 +294,114 @@ class CodeGenerator:
         left_type = self.expression_type(expr.left)
         right_type = self.expression_type(expr.right)
         result_type = TypeChecker.binary_operation_type(left_type, expr.operator, right_type)
-        arithmetic = expr.operator in ['+', '-', '*', '/', '%']
-        use_float = arithmetic and result_type == 'float'
+        arithmetic = expr.operator in ["+", "-", "*", "/", "%"]
+        use_float = arithmetic and result_type == "float"
 
         if use_float:
-            self.generate_expression_as(expr.left, 'float')
-            self.generate_expression_as(expr.right, 'float')
+            self.generate_expression_as(expr.left, "float")
+            self.generate_expression_as(expr.right, "float")
         else:
             self.generate_expression(expr.left)
             self.generate_expression(expr.right)
 
         if use_float:
-            opcodes = {
-                '+': OpCode.FADD,
-                '-': OpCode.FSUB,
-                '*': OpCode.FMUL,
-                '/': OpCode.FDIV,
-                '%': OpCode.FMOD,
+            instructions = {
+                "+": "ADDF",
+                "-": "SUBF",
+                "*": "TIMESF",
+                "/": "DIVF",
+                "%": "MOD",
             }
-        elif left_type == 'float' and right_type == 'float' and expr.operator in ['==', '!=', '<', '>', '<=', '>=']:
-            opcodes = {
-                '==': OpCode.FEQ,
-                '!=': OpCode.FNE,
-                '<': OpCode.FLT,
-                '>': OpCode.FGT,
-                '<=': OpCode.FLE,
-                '>=': OpCode.FGE,
+        elif left_type == "float" and right_type == "float" and expr.operator in ["==", "!=", "<", ">", "<=", ">="]:
+            instructions = {
+                "==": ["CMPF", "ISNIL"],
+                "!=": ["CMPF", "ISNIL", "NOT"],
+                "<": ["CMPF", "ISNEG"],
+                ">": ["CMPF", "ISPOS"],
+                "<=": ["CMPF", "ISPOS", "NOT"],
+                ">=": ["CMPF", "ISNEG", "NOT"],
             }
         else:
-            opcodes = {
-                '+': OpCode.ADD,
-                '-': OpCode.SUB,
-                '*': OpCode.MUL,
-                '/': OpCode.DIV,
-                '%': OpCode.MOD,
-                '==': OpCode.EQ,
-                '!=': OpCode.NE,
-                '<': OpCode.LT,
-                '>': OpCode.GT,
-                '<=': OpCode.LE,
-                '>=': OpCode.GE,
-                '&&': OpCode.AND,
-                '||': OpCode.OR,
+            instructions = {
+                "+": "ADD",
+                "-": "SUB",
+                "*": "TIMES",
+                "/": "DIV",
+                "%": "MOD",
+                "==": "EQUAL",
+                "!=": ["EQUAL", "NOT"],
+                "<": "LESS",
+                ">": "GREATER",
+                "<=": ["GREATER", "NOT"],
+                ">=": ["LESS", "NOT"],
+                "&&": "AND",
+                "||": "OR",
             }
 
-        if expr.operator not in opcodes:
+        instruction = instructions.get(expr.operator)
+        if instruction is None:
             raise CodeGenError(f"Unknown binary operator: {expr.operator}")
-        self.buffer.emit(opcodes[expr.operator])
+        self.emit_instruction_or_sequence(instruction)
+
+    def emit_instruction_or_sequence(self, instruction) -> None:
+        if isinstance(instruction, list):
+            for item in instruction:
+                self.emit(item)
+        else:
+            self.emit(instruction)
 
     def generate_unary_expression(self, expr: UnaryExpression) -> None:
-        self.generate_expression(expr.operand)
-
-        if expr.operator == '-':
-            opcode = OpCode.FNEG if self.expression_type(expr.operand) == 'float' else OpCode.NEG
-            self.buffer.emit(opcode)
-        elif expr.operator == '!':
-            self.buffer.emit(OpCode.NOT)
+        if expr.operator == "-":
+            if self.expression_type(expr.operand) == "float":
+                self.emit("PUSHIMMF 0.0")
+                self.generate_expression(expr.operand)
+                self.emit("SUBF")
+            else:
+                self.emit("PUSHIMM 0")
+                self.generate_expression(expr.operand)
+                self.emit("SUB")
+        elif expr.operator == "!":
+            self.generate_expression(expr.operand)
+            self.emit("NOT")
         else:
             raise CodeGenError(f"Unknown unary operator: {expr.operator}")
 
     def generate_function_call(self, call: FunctionCall) -> None:
+        if call.name not in self.function_table:
+            raise CodeGenError(f"Undefined function: {call.name}")
+
+        self.emit("ADDSP 1")
         for arg, target_type in zip(call.arguments, self.function_param_types.get(call.name, [])):
             self.generate_expression(arg)
             self.emit_assignment_conversion(self.expression_type(arg), target_type)
 
-        label = self.function_labels.get(call.name)
-        if not label:
-            raise CodeGenError(f"Undefined function: {call.name}")
+        self.emit("LINK")
+        self.emit(f"JSR FUNCAO_{call.name}")
+        self.emit("POPFBR")
 
-        self.buffer.emit(OpCode.CALL, f"{label} {len(call.arguments)}")
+        if call.arguments:
+            self.emit(f"ADDSP -{len(call.arguments)}")
 
     def generate_array_access(self, expr: ArrayAccess) -> None:
-        symbol = self.symbol_table.lookup(expr.array_name)
-        if not symbol:
-            raise CodeGenError(f"Undefined variable: {expr.array_name}")
-
+        _, offset = self.require_symbol(expr.array_name)
         self.generate_expression(expr.index)
-        self.buffer.emit(OpCode.LOAD_INDEXED, symbol.offset)
+        self.emit(f"PUSHOFF {offset}")
+        self.emit("ADD")
+        self.emit("PUSHIND")
 
     def generate_literal(self, literal: Literal) -> None:
-        if literal.type_name == 'float':
-            self.buffer.emit(OpCode.PUSHF32, self.float32_bits(literal.value))
-        elif literal.type_name == 'char':
-            self.buffer.emit(OpCode.PUSH, ord(literal.value))
-        elif literal.type_name == 'bool':
-            self.buffer.emit(OpCode.PUSH, 1 if literal.value else 0)
-        elif literal.type_name == 'string':
-            escaped = literal.value.replace('\\', '\\\\').replace('"', '\\"')
-            self.buffer.emit(OpCode.PUSHS, f'"{escaped}"')
+        if literal.type_name == "float":
+            self.emit(f"PUSHIMMF {literal.value}")
+        elif literal.type_name == "char":
+            escaped = self.escape_char_literal(literal.value)
+            self.emit(f"PUSHIMMCH '{escaped}'")
+        elif literal.type_name == "bool":
+            self.emit(f"PUSHIMM {1 if literal.value else 0}")
+        elif literal.type_name == "string":
+            escaped = literal.value.replace("\\", "\\\\").replace('"', '\\"')
+            self.emit(f'PUSHS "{escaped}"')
         else:
-            self.buffer.emit(OpCode.PUSH, literal.value)
+            self.emit(f"PUSHIMM {literal.value}")
 
     def generate_expression_as(self, expr: Expression, target_type: str) -> None:
         actual_type = self.expression_type(expr)
@@ -320,17 +409,15 @@ class CodeGenerator:
         self.emit_assignment_conversion(actual_type, target_type)
 
     def emit_assignment_conversion(self, from_type: str, to_type: str) -> None:
-        if from_type == 'int' and to_type == 'float':
-            self.buffer.emit(OpCode.ITOF)
+        if from_type == "int" and to_type == "float":
+            self.emit("ITOF")
 
     def expression_type(self, expr: Expression) -> str:
         if isinstance(expr, Literal):
             return expr.type_name
         if isinstance(expr, Identifier):
-            symbol = self.symbol_table.lookup(expr.name)
-            if not symbol:
-                raise CodeGenError(f"Undefined variable: {expr.name}")
-            return symbol.type_name
+            type_name, _ = self.require_symbol(expr.name)
+            return type_name
         if isinstance(expr, BinaryExpression):
             return TypeChecker.binary_operation_type(
                 self.expression_type(expr.left),
@@ -341,12 +428,10 @@ class CodeGenerator:
             return TypeChecker.unary_operation_type(expr.operator, self.expression_type(expr.operand))
         if isinstance(expr, FunctionCall):
             return_type, _ = self.function_table.get(expr.name, (None, []))
-            return return_type if return_type else 'void'
+            return return_type if return_type else "void"
         if isinstance(expr, ArrayAccess):
-            symbol = self.symbol_table.lookup(expr.array_name)
-            if not symbol:
-                raise CodeGenError(f"Undefined variable: {expr.array_name}")
-            return symbol.type_name
+            type_name, _ = self.require_symbol(expr.array_name)
+            return type_name
         raise CodeGenError(f"Unknown expression type: {type(expr)}")
 
     def count_locals(self, block: Block) -> int:
@@ -363,9 +448,19 @@ class CodeGenerator:
                     count += self.count_locals(stmt.else_block)
             elif isinstance(stmt, WhileStatement) and stmt.body:
                 count += self.count_locals(stmt.body)
+            elif isinstance(stmt, DoWhileStatement) and stmt.body:
+                count += self.count_locals(stmt.body)
+            elif isinstance(stmt, ForStatement) and stmt.body:
+                count += self.count_locals(stmt.body)
         return count
 
     @staticmethod
-    def float32_bits(value: float) -> str:
-        bits = struct.unpack('>I', struct.pack('>f', float(value)))[0]
-        return f"0x{bits:08x}"
+    def escape_char_literal(value: str) -> str:
+        return (
+            value
+            .replace("\\", "\\\\")
+            .replace("\n", "\\n")
+            .replace("\t", "\\t")
+            .replace("\r", "\\r")
+            .replace("'", "\\'")
+        )

@@ -144,6 +144,46 @@ class TestSemanticAnalyzer(unittest.TestCase):
         """
         with self.assertRaises(SemanticError):
             self.analyze(code)
+
+    def test_do_while_condition_type(self):
+        """Test error when do-while condition is not bool."""
+        code = """
+        func main() {
+            do {
+                print(1);
+            } while (5);
+        }
+        """
+        with self.assertRaises(SemanticError):
+            self.analyze(code)
+
+    def test_for_loop_requires_int_control_variable(self):
+        """Test error when for control variable is not int."""
+        code = """
+        func main() {
+            float i = 0.0;
+            for i = 1 to 3 {
+                print(i);
+            }
+        }
+        """
+        with self.assertRaises(SemanticError):
+            self.analyze(code)
+
+    def test_valid_counted_and_do_while_loops(self):
+        """Test valid counted and do-while loops."""
+        code = """
+        func main() {
+            int i = 0;
+            do {
+                i = i + 1;
+            } while (i < 3);
+            for i = 1 to 3 {
+                print(i);
+            }
+        }
+        """
+        self.analyze(code)
     
     def test_valid_program(self):
         """Test valid program."""

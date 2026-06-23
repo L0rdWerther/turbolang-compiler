@@ -129,6 +129,12 @@ class SemanticAnalyzer:
         
         elif isinstance(stmt, WhileStatement):
             self.analyze_while_statement(stmt)
+
+        elif isinstance(stmt, DoWhileStatement):
+            self.analyze_do_while_statement(stmt)
+
+        elif isinstance(stmt, ForStatement):
+            self.analyze_for_statement(stmt)
         
         elif isinstance(stmt, ReturnStatement):
             self.analyze_return_statement(stmt)
@@ -212,6 +218,35 @@ class SemanticAnalyzer:
         if while_stmt.body:
             self.analyze_block(while_stmt.body)
         self.symbol_table.pop_scope()
+
+    def analyze_do_while_statement(self, do_stmt: DoWhileStatement) -> None:
+        """Analyze do-while loop."""
+        self.symbol_table.push_scope()
+        if do_stmt.body:
+            self.analyze_block(do_stmt.body)
+        self.symbol_table.pop_scope()
+
+        cond_type = self.analyze_expression(do_stmt.condition)
+        if cond_type != 'bool':
+            raise SemanticError(f"Do-while condition must be bool, got {cond_type}")
+
+    def analyze_for_statement(self, for_stmt: ForStatement) -> None:
+        """Analyze counted for loop."""
+        symbol = self.symbol_table.lookup(for_stmt.variable)
+        if not symbol:
+            raise SemanticError(f"Undefined variable: {for_stmt.variable}")
+        if symbol.type_name != 'int':
+            raise SemanticError("For loop control variable must be int")
+
+        start_type = self.analyze_expression(for_stmt.start)
+        end_type = self.analyze_expression(for_stmt.end)
+        if start_type != 'int' or end_type != 'int':
+            raise SemanticError("For loop bounds must be int")
+
+        self.symbol_table.push_scope()
+        if for_stmt.body:
+            self.analyze_block(for_stmt.body)
+        self.symbol_table.pop_scope()
     
     def analyze_return_statement(self, ret_stmt: ReturnStatement) -> None:
         """Analyze return statement."""
@@ -255,6 +290,9 @@ class SemanticAnalyzer:
                 self.block_guarantees_return(stmt.then_block)
                 and self.block_guarantees_return(stmt.else_block)
             )
+
+        if isinstance(stmt, DoWhileStatement):
+            return stmt.body is not None and self.block_guarantees_return(stmt.body)
 
         return False
     

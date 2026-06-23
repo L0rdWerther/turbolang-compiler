@@ -176,6 +176,52 @@ class TestParser(unittest.TestCase):
         func = program.functions[0]
         stmt = func.body.statements[0]
         self.assertIsInstance(stmt, WhileStatement)
+
+    def test_do_while_statement(self):
+        """Test parsing do-while loop."""
+        code = """
+        func main() {
+            do {
+                print(1);
+            } while (false);
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[0]
+        self.assertIsInstance(stmt, DoWhileStatement)
+
+    def test_counted_for_statement(self):
+        """Test parsing counted for loop."""
+        code = """
+        func main() {
+            int i = 0;
+            for i = 1 to 3 {
+                print(i);
+            }
+        }
+        """
+        program = self.parse(code)
+        stmt = program.functions[0].body.statements[1]
+        self.assertIsInstance(stmt, ForStatement)
+        self.assertEqual(stmt.variable, "i")
+
+    def test_portuguese_loop_aliases(self):
+        """Test parsing Portuguese aliases for loops."""
+        code = """
+        func main() {
+            int i = 0;
+            faca {
+                i = i + 1;
+            } enquanto (i < 3);
+            para i = 1 ate 3 {
+                print(i);
+            }
+        }
+        """
+        program = self.parse(code)
+        statements = program.functions[0].body.statements
+        self.assertIsInstance(statements[1], DoWhileStatement)
+        self.assertIsInstance(statements[2], ForStatement)
     
     def test_return_statement(self):
         """Test parsing return statement."""
