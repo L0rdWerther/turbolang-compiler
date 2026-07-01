@@ -1,207 +1,88 @@
-"""
-Tests for semantic analyzer.
-"""
-
 import unittest
 from lexer.lexer import Lexer
 from parser.parser import Parser
 from semantic.semantic_analyzer import SemanticAnalyzer, SemanticError
 
-
 class TestSemanticAnalyzer(unittest.TestCase):
-    """Test cases for Semantic Analyzer."""
-    
+
     def analyze(self, code: str):
-        """Helper to analyze code."""
         lexer = Lexer(code)
         tokens = lexer.tokenize()
         parser = Parser(tokens)
         program = parser.parse()
         analyzer = SemanticAnalyzer()
         analyzer.analyze(program)
-    
+
     def test_undefined_variable(self):
-        """Test error on undefined variable."""
-        code = """
-        func main() {
-            print(x);
-        }
-        """
+        code = '\n        func main() {\n            print(x);\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_duplicate_declaration(self):
-        """Test error on duplicate variable declaration."""
-        code = """
-        func main() {
-            int x = 1;
-            int x = 2;
-        }
-        """
+        code = '\n        func main() {\n            int x = 1;\n            int x = 2;\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_missing_main(self):
-        """Test error when main function is missing."""
-        code = """
-        func other() {
-        }
-        """
+        code = '\n        func other() {\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_type_mismatch_assignment(self):
-        """Test error on type mismatch in assignment."""
-        code = """
-        func main() {
-            int x = "hello";
-        }
-        """
+        code = '\n        func main() {\n            int x = "hello";\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_valid_int_to_float_conversion(self):
-        """Test valid int to float conversion."""
-        code = """
-        func main() {
-            float x = 1;
-        }
-        """
-        # Should not raise
+        code = '\n        func main() {\n            float x = 1;\n        }\n        '
         self.analyze(code)
-    
+
     def test_return_type_mismatch(self):
-        """Test error on return type mismatch."""
-        code = """
-        func getValue() -> int {
-            return "hello";
-        }
-        
-        func main() {
-        }
-        """
+        code = '\n        func getValue() -> int {\n            return "hello";\n        }\n        \n        func main() {\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
 
     def test_typed_function_without_return_fails(self):
-        """Test error when a typed function does not return."""
-        code = """
-        func getValue() -> int {
-            int x = 1;
-        }
-
-        func main() {
-        }
-        """
+        code = '\n        func getValue() -> int {\n            int x = 1;\n        }\n\n        func main() {\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
 
     def test_procedure_returning_value_fails(self):
-        """Test error when a procedure returns a value."""
-        code = """
-        func log() {
-            return 1;
-        }
+        code = '\n        func log() {\n            return 1;\n        }\n\n        func main() {\n        }\n        '
+        with self.assertRaises(SemanticError):
+            self.analyze(code)
 
-        func main() {
-        }
-        """
-        with self.assertRaises(SemanticError):
-            self.analyze(code)
-    
     def test_function_parameter_count(self):
-        """Test error on function parameter count mismatch."""
-        code = """
-        func add(int a, int b) -> int {
-            return a + b;
-        }
-        
-        func main() {
-            add(1);
-        }
-        """
+        code = '\n        func add(int a, int b) -> int {\n            return a + b;\n        }\n        \n        func main() {\n            add(1);\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_if_condition_type(self):
-        """Test error when if condition is not bool."""
-        code = """
-        func main() {
-            if (5) {
-            }
-        }
-        """
+        code = '\n        func main() {\n            if (5) {\n            }\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
-    
+
     def test_while_condition_type(self):
-        """Test error when while condition is not bool."""
-        code = """
-        func main() {
-            while (5) {
-            }
-        }
-        """
+        code = '\n        func main() {\n            while (5) {\n            }\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
 
     def test_do_while_condition_type(self):
-        """Test error when do-while condition is not bool."""
-        code = """
-        func main() {
-            do {
-                print(1);
-            } while (5);
-        }
-        """
+        code = '\n        func main() {\n            do {\n                print(1);\n            } while (5);\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
 
     def test_for_loop_requires_int_control_variable(self):
-        """Test error when for control variable is not int."""
-        code = """
-        func main() {
-            float i = 0.0;
-            for i = 1 to 3 {
-                print(i);
-            }
-        }
-        """
+        code = '\n        func main() {\n            float i = 0.0;\n            for i = 1 to 3 {\n                print(i);\n            }\n        }\n        '
         with self.assertRaises(SemanticError):
             self.analyze(code)
 
     def test_valid_counted_and_do_while_loops(self):
-        """Test valid counted and do-while loops."""
-        code = """
-        func main() {
-            int i = 0;
-            do {
-                i = i + 1;
-            } while (i < 3);
-            for i = 1 to 3 {
-                print(i);
-            }
-        }
-        """
+        code = '\n        func main() {\n            int i = 0;\n            do {\n                i = i + 1;\n            } while (i < 3);\n            for i = 1 to 3 {\n                print(i);\n            }\n        }\n        '
         self.analyze(code)
-    
+
     def test_valid_program(self):
-        """Test valid program."""
-        code = """
-        func add(int a, int b) -> int {
-            return a + b;
-        }
-        
-        func main() {
-            int x = 5;
-            int y = 10;
-            int z = add(x, y);
-            print(z);
-        }
-        """
-        # Should not raise
+        code = '\n        func add(int a, int b) -> int {\n            return a + b;\n        }\n        \n        func main() {\n            int x = 5;\n            int y = 10;\n            int z = add(x, y);\n            print(z);\n        }\n        '
         self.analyze(code)
-
-
 if __name__ == '__main__':
     unittest.main()

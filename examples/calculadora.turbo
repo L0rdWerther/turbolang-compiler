@@ -17,12 +17,12 @@ func divisao(int a, int b) -> int {
 func main() {
     int x = 20;
     int y = 10;
-    
+
     int rSoma = soma(x, y);
     int rSub = subtracao(x, y);
     int rMult = multiplicacao(x, y);
     int rDiv = divisao(x, y);
-    
+
     print(rSoma);
     print(rSub);
     print(rMult);

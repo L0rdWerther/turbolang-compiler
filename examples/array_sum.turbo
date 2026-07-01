@@ -11,6 +11,5 @@ func sum_array(int arr, int size) -> int {
 }
 
 func main() {
-    // Sem declaração de array por enquanto
     print(sum_array(0, 0));
 }
